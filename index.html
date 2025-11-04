@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MELBET</title>
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Простые анимации и адаптив -->
+  <style>
+    @keyframes winFlash { 0%{background-color:#22c55e33}50%{background-color:#22c55e66}100%{background-color:transparent} }
+    @keyframes loseFlash { 0%{background-color:#ef444433}50%{background-color:#ef444466}100%{background-color:transparent} }
+    .animate-win { animation: winFlash 0.6s ease; }
+    .animate-lose { animation: loseFlash 0.6s ease; }
+
+    /* Доп. безопасность: не даём кнопкам схлопываться при малой ширине */
+    .btn-group { display:flex; gap:0.5rem; }
+    @media (max-width: 640px) {
+      .btn-group { flex-direction: column; }
+      .btn-group > button { width: 100%; }
+    }
+    img {
+      width: 90px;
+      height: 90px;
+    }
+  </style>
+
+  <!-- React UMD -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Babel для in-browser JSX (dev only) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+  <div id="root" class="w-full max-w-3xl"></div>
+
+  <!-- JSX код -->
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      const [amount, setAmount] = useState(1);
+      const [percent, setPercent] = useState(50);
+      const [balance, setBalance] = useState(1000);
+      const [lastGames, setLastGames] = useState([]);
+      const [hash, setHash] = useState('');
+      const [animClass, setAnimClass] = useState('');
+
+      const MAX_PERCENT = 90;
+
+      useEffect(() => { setHash(generateHash()); }, []);
+
+      function generateHash() {
+        const r = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        let s = 0;
+        for (let i = 0; i < r.length; i++) { s = (s << 5) - s + r.charCodeAt(i); s |= 0; }
+        return Math.abs(s).toString(16).padStart(32, '0');
+      }
+
+      function calcPossibleWin() {
+        const odds = Math.max(1, Math.min(MAX_PERCENT, percent)) / 100;
+        const win = +(amount * (1 / odds)).toFixed(2);
+        return isFinite(win) ? win : 0;
+      }
+
+      function addLastGame(entry) {
+        setLastGames(prev => [entry, ...prev].slice(0, 20));
+      }
+
+      function play(isHigher) {
+        // блокируем если нет денег
+        if (balance < amount) return;
+
+        const num = Math.floor(Math.random() * 1_000_000);
+        // используем 0..99 для простоты и percent как вероятность
+        const chance = Math.min(Math.max(Math.floor(percent), 1), MAX_PERCENT);
+        const roll = num % 100;
+        const isWin = isHigher ? (roll > (100 - chance)) : (roll < chance);
+
+        const wonAmount = isWin ? +(calcPossibleWin()).toFixed(2) : 0;
+        const newBalance = +(balance - amount + wonAmount).toFixed(2);
+        // не позволяем уйти в минус (защита ещё раз)
+        const safeBalance = Math.max(0, newBalance);
+
+        setBalance(safeBalance);
+
+        const entry = {
+          id: Date.now(),
+          number: String(num).padStart(6, '0'),
+          side: isHigher ? 'Больше' : 'Меньше',
+          amount: +amount,
+          chance: `${chance}%`,
+          win: +wonAmount,
+          success: isWin
+        };
+
+        addLastGame(entry);
+        setHash(generateHash());
+
+        // анимация
+        setAnimClass(isWin ? 'animate-win' : 'animate-lose');
+        setTimeout(() => setAnimClass(''), 600);
+      }
+
+      // быстрые операции
+      function handleAmountChange(v) {
+        setAmount(prev => {
+          const next = typeof v === 'function' ? v(prev) : v;
+          return Math.max(0.01, +next);
+        });
+      }
+
+      function handlePercentChange(v) {
+        setPercent(prev => {
+          const next = typeof v === 'function' ? v(prev) : v;
+          return Math.min(MAX_PERCENT, Math.max(1, Math.round(next)));
+        });
+      }
+
+      return (
+        <div className={"bg-white p-6 rounded-2xl shadow-md w-full transition " + animClass}>
+          <header className="flex items-center justify-between mb-6">
+            <img src="glavstroy.png" alt="як тупак"></img>
+            <h1 className="text-2xl font-bold text-blue-700">MELBET</h1>                      
+            <div className="flex items-center gap-3">
+              <span className="text-gray-600 text-sm">Баланс</span>
+              <div className="bg-gray-100 px-3 py-1 rounded font-semibold">{balance.toFixed(2)}</div>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-12 gap-6 items-start">
+            {/* Ставка */}
+            <div className="col-span-12 sm:col-span-4">
+              <label className="block text-sm text-gray-600 mb-1">Сумма</label>
+              <input
+                type="number"
+                className="w-full border rounded px-3 py-2"
+                value={amount}
+                step="0.01"
+                min="0.01"
+                onChange={(e) => setAmount(Number(e.target.value) || 0.01)}
+              />
+              <div className="mt-2 btn-group">
+                <button onClick={() => handleAmountChange(a => +(a * 2).toFixed(2))} className="border rounded px-2 py-1">Удвоить</button>
+                <button onClick={() => handleAmountChange(a => +(a / 2).toFixed(2))} className="border rounded px-2 py-1">Половина</button>
+                <button onClick={() => setAmount(1)} className="border rounded px-2 py-1">Мин</button>
+                <button onClick={() => setAmount(Math.max(0.01, balance))} className="border rounded px-2 py-1">Макс</button>
+              </div>
+            </div>
+
+            {/* Процент */}
+            <div className="col-span-12 sm:col-span-4">
+              <label className="block text-sm text-gray-600 mb-1">Процент (шанс, макс {MAX_PERCENT}%)</label>
+              <input
+                type="number"
+                className="w-full border rounded px-3 py-2"
+                value={percent}
+                min="1"
+                max={MAX_PERCENT}
+                onChange={(e) => setPercent(Math.min(MAX_PERCENT, Number(e.target.value) || 1))}
+              />
+              <div className="mt-2 btn-group">
+                <button onClick={() => handlePercentChange(p => Math.max(1, Math.round(p / 2)))} className="border rounded px-2 py-1">Половина</button>
+                <button onClick={() => handlePercentChange(p => Math.min(MAX_PERCENT, p * 2))} className="border rounded px-2 py-1">Удвоить</button>
+                <button onClick={() => setPercent(1)} className="border rounded px-2 py-1">Мин</button>
+                <button onClick={() => setPercent(MAX_PERCENT)} className="border rounded px-2 py-1">Макс</button>
+              </div>
+            </div>
+
+            {/* Игровая зона */}
+            <div className="col-span-12 sm:col-span-4 text-center">
+              <div className="text-3xl font-semibold text-blue-600">{calcPossibleWin().toFixed(2)}</div>
+              <div className="text-sm text-gray-500 mb-3">Возможный выигрыш</div>
+
+              <div className="flex gap-3 justify-center mt-4">
+                <button
+                  onClick={() => play(false)}
+                  disabled={balance < amount}
+                  className={`px-6 py-2 rounded ${balance < amount ? 'bg-gray-300' : 'bg-gray-600 text-white hover:bg-gray-700'}`}
+                >
+                  Меньше
+                </button>
+                <button
+                  onClick={() => play(true)}
+                  disabled={balance < amount}
+                  className={`px-6 py-2 rounded ${balance < amount ? 'bg-gray-300' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                >
+                  Больше
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 text-sm text-gray-500">
+            <div className="mb-2">Hash игры: <code className="break-all bg-gray-50 px-2 py-1 rounded">{hash}</code></div>
+          </div>
+
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold mb-3">Последние игры</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-500">
+                    <th className="py-2">Логин</th>
+                    <th className="py-2">Число</th>
+                    <th className="py-2">Цель</th>
+                    <th className="py-2">Сумма</th>
+                    <th className="py-2">Шанс</th>
+                    <th className="py-2">Выигрыш</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lastGames.length === 0 && (
+                    <tr><td colSpan={6} className="py-6 text-center text-gray-400">Здесь будут отображаться последние игры</td></tr>
+                  )}
+                  {lastGames.map(g => (
+                    <tr key={g.id} className="border-t">
+                      <td className="py-3">You</td>
+                      <td className={`py-3 ${g.success ? 'text-green-600' : 'text-red-600'}`}>{g.number}</td>
+                      <td className="py-3">{g.side}</td>
+                      <td className="py-3">{g.amount.toFixed(2)}</td>
+                      <td className="py-3">{g.chance}</td>
+                      <td className="py-3 font-semibold">{g.win.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // рендер
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
