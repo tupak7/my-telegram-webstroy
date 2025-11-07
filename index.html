@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MELBET</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React UMD -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    @keyframes winFlash { 0%{background-color:#22c55e33}50%{background-color:#22c55e66}100%{background-color:transparent} }
+    @keyframes loseFlash { 0%{background-color:#ef444433}50%{background-color:#ef444466}100%{background-color:transparent} }
+    .animate-win { animation: winFlash 0.6s ease; }
+    .animate-lose { animation: loseFlash 0.6s ease; }
+
+    .btn-group { display:flex; gap:0.5rem; }
+    @media (max-width: 640px) {
+      .btn-group { flex-direction: column; }
+      .btn-group > button { width: 100%; }
+    }
+    img { width: 90px; height: 90px; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+  <div id="root" class="w-full max-w-3xl"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      // 🔑 Авторизация
+      const [token, setToken] = useState('');
+      const [isLogged, setIsLogged] = useState(false);
+      const [menu, setMenu] = useState('game');
+
+      // 🎮 Игровая логика
+      const [amount, setAmount] = useState(1);
+      const [percent, setPercent] = useState(50);
+      const [balance, setBalance] = useState(1000);
+      const [lastGames, setLastGames] = useState([]);
+      const [hash, setHash] = useState('');
+      const [animClass, setAnimClass] = useState('');
+      const MAX_PERCENT = 90;
+
+      useEffect(() => { setHash(generateHash()); }, []);
+
+      function generateHash() {
+        const r = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        let s = 0;
+        for (let i = 0; i < r.length; i++) { s = (s << 5) - s + r.charCodeAt(i); s |= 0; }
+        return Math.abs(s).toString(16).padStart(32, '0');
+      }
+
+      function calcPossibleWin() {
+        const odds = Math.max(1, Math.min(MAX_PERCENT, percent)) / 100;
+        const win = +(amount * (1 / odds)).toFixed(2);
+        return isFinite(win) ? win : 0;
+      }
+
+      function play(isHigher) {
+        if (balance < amount) return;
+        const num = Math.floor(Math.random() * 1_000_000);
+        const chance = Math.min(Math.max(Math.floor(percent), 1), MAX_PERCENT);
+        const roll = num % 100;
+        const isWin = isHigher ? (roll > (100 - chance)) : (roll < chance);
+        const wonAmount = isWin ? +(calcPossibleWin()).toFixed(2) : 0;
+        const newBalance = +(balance - amount + wonAmount).toFixed(2);
+        setBalance(Math.max(0, newBalance));
+        const entry = {
+          id: Date.now(),
+          number: String(num).padStart(6, '0'),
+          side: isHigher ? 'Больше' : 'Меньше',
+          amount: +amount,
+          chance: `${chance}%`,
+          win: +wonAmount,
+          success: isWin
+        };
+        setLastGames(prev => [entry, ...prev].slice(0, 20));
+        setHash(generateHash());
+        setAnimClass(isWin ? 'animate-win' : 'animate-lose');
+        setTimeout(() => setAnimClass(''), 600);
+      }
+
+      // ---------- Меню ----------
+      const renderMenuButtons = () => (
+        <div className="flex flex-wrap justify-center gap-2 mb-4">
+          <button onClick={() => setMenu('profile')} className="bg-blue-600 text-white px-3 py-2 rounded">👤 Профиль</button>
+          <button onClick={() => setMenu('deposit')} className="bg-green-600 text-white px-3 py-2 rounded">💰 Пополнить</button>
+          <button onClick={() => setMenu('withdraw')} className="bg-yellow-500 text-white px-3 py-2 rounded">💸 Вывести</button>
+          <button onClick={() => setMenu('historyDep')} className="bg-purple-600 text-white px-3 py-2 rounded">📈 История пополнений</button>
+          <button onClick={() => setMenu('historyWith')} className="bg-pink-600 text-white px-3 py-2 rounded">📉 История выводов</button>
+          <button onClick={() => setMenu('game')} className="bg-gray-700 text-white px-3 py-2 rounded">🎮 Игра</button>
+        </div>
+      );
+
+      const renderProfile = () => (
+        <div className="text-center">
+          <h2 className="text-xl font-bold mb-2">👤 Профиль</h2>
+          <p>Ник: <b>CryptoUser</b></p>
+          <p>Баланс: <b>{balance.toFixed(2)} USDT</b></p>
+          <p>Токен: <code>{token}</code></p>
+        </div>
+      );
+
+      const renderDeposit = () => (
+        <div className="text-center">
+          <h2 className="text-xl font-bold mb-2">💰 Пополнить</h2>
+          <p>Выбери криптовалюту:</p>
+          <div className="flex flex-col gap-2 mt-3">
+            <button className="bg-blue-500 px-3 py-2 rounded">USDT (TRC20)</button>
+            <button className="bg-yellow-500 px-3 py-2 rounded">BTC</button>
+            <button className="bg-purple-600 px-3 py-2 rounded">ETH</button>
+          </div>
+        </div>
+      );
+
+      const renderWithdraw = () => (
+        <div className="text-center">
+          <h2 className="text-xl font-bold mb-2">💸 Вывести</h2>
+          <p>Выбери криптовалюту:</p>
+          <div className="flex flex-col gap-2 mt-3">
+            <button className="bg-blue-500 px-3 py-2 rounded">USDT (TRC20)</button>
+            <button className="bg-yellow-500 px-3 py-2 rounded">BTC</button>
+            <button className="bg-purple-600 px-3 py-2 rounded">ETH</button>
+          </div>
+        </div>
+      );
+
+      const renderHistory = (type) => (
+        <div className="text-center">
+          <h2 className="text-xl font-bold mb-2">
+            {type === 'dep' ? '📈 История пополнений' : '📉 История выводов'}
+          </h2>
+          <p>Здесь пока пусто 🙂</p>
+        </div>
+      );
+
+      // ---------- Игра ----------
+      const renderGame = () => (
+        <div className={"bg-white p-6 rounded-2xl shadow-md w-full transition " + animClass}>
+          <header className="flex items-center justify-between mb-6">
+            <img src="glavstroy.png" alt="logo" />
+            <h1 className="text-2xl font-bold text-blue-700">MELBET</h1>
+            <div className="flex items-center gap-3">
+              <span className="text-gray-600 text-sm">Баланс</span>
+              <div className="bg-gray-100 px-3 py-1 rounded font-semibold">{balance.toFixed(2)}</div>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-12 gap-6 items-start">
+            <div className="col-span-12 sm:col-span-4">
+              <label className="block text-sm text-gray-600 mb-1">Сумма</label>
+              <input type="number" className="w-full border rounded px-3 py-2"
+                     value={amount} step="0.01" min="0.01"
+                     onChange={e=>setAmount(Number(e.target.value)||0.01)} />
+              <div className="mt-2 btn-group">
+                <button onClick={()=>setAmount(a=>+(a*2).toFixed(2))} className="border rounded px-2 py-1">Удвоить</button>
+                <button onClick={()=>setAmount(a=>+(a/2).toFixed(2))} className="border rounded px-2 py-1">Половина</button>
+                <button onClick={()=>setAmount(1)} className="border rounded px-2 py-1">Мин</button>
+                <button onClick={()=>setAmount(Math.max(0.01,balance))} className="border rounded px-2 py-1">Макс</button>
+              </div>
+            </div>
+
+            <div className="col-span-12 sm:col-span-4">
+              <label className="block text-sm text-gray-600 mb-1">Процент (макс {MAX_PERCENT}%)</label>
+              <input type="number" className="w-full border rounded px-3 py-2"
+                     value={percent} min="1" max={MAX_PERCENT}
+                     onChange={e=>setPercent(Math.min(MAX_PERCENT,Number(e.target.value)||1))} />
+              <div className="mt-2 btn-group">
+                <button onClick={()=>setPercent(p=>Math.max(1,Math.round(p/2)))} className="border rounded px-2 py-1">½</button>
+                <button onClick={()=>setPercent(p=>Math.min(MAX_PERCENT,p*2))} className="border rounded px-2 py-1">×2</button>
+                <button onClick={()=>setPercent(1)} className="border rounded px-2 py-1">Мин</button>
+                <button onClick={()=>setPercent(MAX_PERCENT)} className="border rounded px-2 py-1">Макс</button>
+              </div>
+            </div>
+
+            <div className="col-span-12 sm:col-span-4 text-center">
+              <div className="text-3xl font-semibold text-blue-600">{calcPossibleWin().toFixed(2)}</div>
+              <div className="text-sm text-gray-500 mb-3">Возможный выигрыш</div>
+              <div className="flex gap-3 justify-center mt-4">
+                <button onClick={()=>play(false)} disabled={balance<amount}
+                        className={`px-6 py-2 rounded ${balance<amount?'bg-gray-300':'bg-gray-600 text-white hover:bg-gray-700'}`}>Меньше</button>
+                <button onClick={()=>play(true)} disabled={balance<amount}
+                        className={`px-6 py-2 rounded ${balance<amount?'bg-gray-300':'bg-blue-600 text-white hover:bg-blue-700'}`}>Больше</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 text-sm text-gray-500">
+            <div>Hash игры: <code className="break-all bg-gray-50 px-2 py-1 rounded">{hash}</code></div>
+          </div>
+        </div>
+      );
+
+      // ---------- Отображение ----------
+      if (!isLogged) {
+        return (
+          <div className="bg-white p-6 rounded-2xl shadow-md text-center">
+            <h2 className="text-2xl font-bold mb-2">🔑 Вход</h2>
+            <p className="text-gray-600 mb-3">8595197693:AAFrVbRPpas6kA5p7dTQHAgn6gay-1qK7SM</p>
+            <input type="text" className="border rounded px-3 py-2 w-64 text-center"
+                   placeholder="8595197693:AAFrVbRPpas6kA5p7dTQHAgn6gay-1qK7SM" value={token}
+                   onChange={e=>setToken(e.target.value)} />
+            <button onClick={()=>token.trim()?setIsLogged(true):alert('8595197693:AAFrVbRPpas6kA5p7dTQHAgn6gay-1qK7SM')}
+                    className="mt-3 bg-blue-600 text-white px-4 py-2 rounded">Войти</button>
+          </div>
+        );
+      }
+
+      return (
+        <div className="w-full">
+          {renderMenuButtons()}
+          {menu === 'profile' && renderProfile()}
+          {menu === 'deposit' && renderDeposit()}
+          {menu === 'withdraw' && renderWithdraw()}
+          {menu === 'historyDep' && renderHistory('dep')}
+          {menu === 'historyWith' && renderHistory('with')}
+          {menu === 'game' && renderGame()}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
