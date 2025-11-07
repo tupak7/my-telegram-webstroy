@@ -8,6 +8,9 @@
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <!-- Telegram Web App API -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
   <style>
     @keyframes winFlash { 
       0% { background-color:#22c55e33 } 
@@ -57,6 +60,27 @@
       width: 70px;
       height: 70px;
     }
+
+    /* Стили для новых кнопок */
+    .action-btn {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 0.75rem;
+      font-weight: 600;
+      font-size: 16px;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .action-btn:active {
+      transform: translateY(0);
+    }
   </style>
 
   <!-- React -->
@@ -77,7 +101,29 @@
       const [lastGames, setLastGames] = useState([]);
       const [hash, setHash] = useState('');
       const [animClass, setAnimClass] = useState('');
+      const [tg, setTg] = useState(null);
+      const [user, setUser] = useState(null);
       const MAX_PERCENT = 90;
+
+      // Инициализация Telegram Web App
+      useEffect(() => {
+        const telegram = window.Telegram?.WebApp;
+        if (telegram) {
+          telegram.ready();
+          setTg(telegram);
+          setUser(telegram.initDataUnsafe?.user);
+          
+          // Настройка основной кнопки
+          telegram.MainButton.setText('ПОПОЛНИТЬ');
+          telegram.MainButton.onClick(() => {
+            telegram.showPopup({
+              title: 'Пополнение',
+              message: 'Функция пополнения баланса скоро будет доступна!',
+              buttons: [{ type: 'close' }]
+            });
+          });
+        }
+      }, []);
 
       useEffect(() => { setHash(generateHash()); }, []);
 
@@ -87,6 +133,33 @@
         for (let i = 0; i < r.length; i++) { s = (s << 5) - s + r.charCodeAt(i); s |= 0; }
         return Math.abs(s).toString(16).padStart(32, '0');
       }
+
+      // Функции для кнопок
+      const handleWithdraw = () => {
+        if (tg) {
+          tg.showPopup({
+            title: '💰 Вывод средств',
+            message: 'Функция вывода средств скоро будет доступна!\n\nМинимальная сумма вывода: 100 RUB\nКомиссия: 0%',
+            buttons: [{ type: 'close' }]
+          });
+        } else {
+          alert('💰 Функция вывода средств скоро будет доступна!\nМинимальная сумма вывода: 100 RUB');
+        }
+      };
+
+      const handleProfile = () => {
+        if (tg && user) {
+          const userInfo = `👤 Ваш профиль:\n\nID: ${user.id}\nИмя: ${user.first_name || 'Не указано'}\nФамилия: ${user.last_name || 'Не указана'}\nUsername: @${user.username || 'Не указан'}\n\nБаланс: ${balance.toFixed(2)} RUB\nВсего игр: ${lastGames.length}`;
+          
+          tg.showPopup({
+            title: '👤 Профиль',
+            message: userInfo,
+            buttons: [{ type: 'close' }]
+          });
+        } else {
+          alert(`👤 Профиль:\n\nБаланс: ${balance.toFixed(2)} RUB\nВсего игр: ${lastGames.length}\n\nДля полной информации откройте в Telegram боте`);
+        }
+      };
 
       function calcPossibleWin() {
         const odds = Math.max(1, Math.min(MAX_PERCENT, percent)) / 100;
@@ -149,6 +222,22 @@
               <div className="bg-gray-100 px-3 py-1 rounded font-semibold">{balance.toFixed(2)}</div>
             </div>
           </header>
+
+          {/* Новые кнопки Вывести и Профиль */}
+          <div className="flex gap-3 mb-6">
+            <button
+              onClick={handleWithdraw}
+              className="action-btn bg-gradient-to-r from-green-500 to-emerald-600 text-white"
+            >
+              💰 Вывести
+            </button>
+            <button
+              onClick={handleProfile}
+              className="action-btn bg-gradient-to-r from-blue-500 to-purple-600 text-white"
+            >
+              👤 Профиль
+            </button>
+          </div>
 
           <div className="grid grid-cols-12 gap-6 items-start">
             {/* Ставка */}
