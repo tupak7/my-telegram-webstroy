@@ -48,19 +48,19 @@
       const [animClass, setAnimClass] = useState('');
       const MAX_PERCENT = 90;
 
-      // useEffect(() => { setHash(generateHash()); }, []);
+      useEffect(() => { setHash(generateHash()); }, []);
 
-      useEffect(() => {
-        if (tg && tg.initDataUnsafe?.user) {
-          const userId = tg.initDataUnsafe.user.id;
-          fetch('https://allaxest.replit.app/api/user/${userId}')
-            .then((res) => res.json())
-            .then((data) => {
-              setBalance(data.balance);
-            })
-            .catch(() => console.warn("Ошибка загрузки данных пользователя"));
-        }
-      }, []);
+      // useEffect(() => {
+      //   if (tg && tg.initDataUnsafe?.user) {
+      //     const userId = tg.initDataUnsafe.user.id;
+      //     fetch('https://allaxest.replit.app/api/user/${userId}')
+      //       .then((res) => res.json())
+      //       .then((data) => {
+      //         setBalance(data.balance);
+      //       })
+      //       .catch(() => console.warn("Ошибка загрузки данных пользователя"));
+      //   }
+      // }, []);
 
       function generateHash() {
         const r = Math.random().toString(36).slice(2) + Date.now().toString(36);
